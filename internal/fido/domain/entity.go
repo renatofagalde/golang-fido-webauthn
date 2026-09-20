@@ -1,3 +1,4 @@
+// Package define a estrutura dos dados na aplicacao
 package domain
 
 import "time"
