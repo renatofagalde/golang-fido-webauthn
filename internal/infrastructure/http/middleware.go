@@ -1,3 +1,4 @@
+// Package http define rotas e middleware
 package http
 
 import (
