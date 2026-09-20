@@ -1,8 +1,10 @@
 package http
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,5 +33,23 @@ func FlowID() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid X-Flow-ID"})
 			return
 		}
+
+		ctx := context.WithValue(c.Request.Context(), flowIDKey, flowID)
+		c.Request = c.Request.WithContext(ctx)
+		c.Writer.Header().Set(headerFlowID, flowID)
+
+		start := time.Now()
+
+		slog.Info("request received", "flow_id", flowID,
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path)
+
+		c.Next()
+
+		slog.Info("request completed", "flow_id", flowID,
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"status", c.Writer.Status(),
+			"latency", time.Since(start).Milliseconds())
 	}
 }
