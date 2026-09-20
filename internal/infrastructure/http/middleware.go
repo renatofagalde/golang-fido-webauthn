@@ -29,6 +29,7 @@ func FlowID() gin.HandlerFunc {
 				"method", c.Request.Method,
 				"path", c.Request.URL.Path)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid X-Flow-ID"})
+			return
 		}
 	}
 }
