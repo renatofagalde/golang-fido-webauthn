@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/domain"
+	"github.com/renatofagalde/golang-fido-webauthn/pkg/writeerror"
 )
 
 func writeDomainError(c *gin.Context, err error) {
