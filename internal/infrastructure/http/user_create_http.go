@@ -1,7 +1,6 @@
 package http
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -9,7 +8,7 @@ import (
 	"github.com/renatofagalde/golang-fido-webauthn/pkg/flowid"
 )
 
-func (h *userHandler) Create(c gin.Context) {
+func (h *userHandler) Create(c *gin.Context) {
 	var request CreateUserRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		slog.Warn("invalid request body",
@@ -26,5 +25,5 @@ func (h *userHandler) Create(c gin.Context) {
 		return
 	}
 
-	fmt.Println(user)
+	c.JSON(http.StatusCreated, toUserResponse(user))
 }
