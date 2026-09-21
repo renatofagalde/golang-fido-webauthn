@@ -9,7 +9,7 @@ import (
 	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/domain"
 )
 
-func writeError(c *gin.Context, err error) {
+func writeDomainError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
