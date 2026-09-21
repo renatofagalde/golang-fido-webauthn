@@ -2,13 +2,13 @@
 package http
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/renatofagalde/golang-fido-webauthn/pkg/flowid"
 )
 
 // um tipo proprio para chaves
@@ -35,7 +35,9 @@ func FlowID() gin.HandlerFunc {
 			return
 		}
 
-		ctx := context.WithValue(c.Request.Context(), flowIDKey, flowID)
+		// ctx := context.WithValue(c.Request.Context(), flowIDKey, flowID)
+		// c.Request = c.Request.WithContext(ctx)
+		ctx := flowid.WithID(c.Request.Context(), flowID)
 		c.Request = c.Request.WithContext(ctx)
 		c.Writer.Header().Set(headerFlowID, flowID)
 
