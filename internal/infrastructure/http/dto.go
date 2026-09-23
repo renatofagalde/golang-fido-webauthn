@@ -3,7 +3,7 @@ package http
 import "time"
 
 type CreateUserRequest struct {
-	Username    string `json:"user_name" binding: "requerid"`
+	Username    string `json:"username" binding: "requerid"`
 	Displayname string `json:"display_name" binding: "requerid"`
 }
 
