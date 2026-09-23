@@ -37,3 +37,11 @@ func (r *inMemoryRepository) Create(ctx context.Context, user *domain.User) erro
 	r.users[user.Hash] = &out
 	return nil
 }
+
+func (r *inMemoryRepository) GetByHash(ctx context.Context, hash string) (*User, error) {
+	return nil, nil
+}
+
+func (r *inMemoryRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
+	return false, nil
+}
