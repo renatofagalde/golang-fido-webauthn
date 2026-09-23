@@ -51,5 +51,14 @@ func (r *inMemoryRepository) GetByHash(ctx context.Context, hash string) (*domai
 }
 
 func (r *inMemoryRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, u := range r.users {
+		if u.Username == username {
+			return true, nil
+		}
+	}
+
 	return false, nil
 }
