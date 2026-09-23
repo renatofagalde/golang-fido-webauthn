@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/domain"
+	"github.com/renatofagalde/golang-fido-webauthn/pkg/ptr"
 )
 
 type inMemoryRepository struct {
-	mu    sync.Mutex
+	mu    sync.RWMutex
 	users map[string]*domain.User
 	seq   int64
 }
@@ -38,8 +39,15 @@ func (r *inMemoryRepository) Create(ctx context.Context, user *domain.User) erro
 	return nil
 }
 
-func (r *inMemoryRepository) GetByHash(ctx context.Context, hash string) (*User, error) {
-	return nil, nil
+func (r *inMemoryRepository) GetByHash(ctx context.Context, hash string) (*domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	u, ok := r.users[hash]
+	if !ok {
+		return nil, domain.ErrUserNotFound
+	}
+	return ptr.Of(*u), nil
 }
 
 func (r *inMemoryRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
