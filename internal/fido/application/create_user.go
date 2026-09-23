@@ -1,4 +1,3 @@
-// Package application contém os casos de uso (use cases) da aplicação.
 package application
 
 import (
