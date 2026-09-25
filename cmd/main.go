@@ -6,11 +6,16 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/application"
+	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/infrastructure/repository"
 	infraHTTP "github.com/renatofagalde/golang-fido-webauthn/internal/infrastructure/http"
 )
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
+	userRepository := repository.NewInMemoryUserRepository()
+	userService := application.NewUserService(userRepository)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
