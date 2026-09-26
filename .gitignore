@@ -12,10 +12,11 @@ dist/
 *.test
 *.out
 
-bootstrap
-lambda
-api
-plu
+# binarios compilados na RAIZ (a "/" evita ignorar pastas de codigo como cmd/api)
+/bootstrap
+/lambda
+/api
+/plu
 
 # Módulos Go
 vendor/
@@ -99,4 +100,5 @@ setup.sh
 
 pentest*
 
-main
+# binario compilado na raiz (a "/" evita ignorar pastas/pacotes chamados "main")
+/main
