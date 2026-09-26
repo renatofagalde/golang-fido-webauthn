@@ -2,12 +2,11 @@ package main
 
 import (
 	"log/slog"
-	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/application"
 	"github.com/renatofagalde/golang-fido-webauthn/internal/fido/infrastructure/repository"
+	fidoHTTP "github.com/renatofagalde/golang-fido-webauthn/internal/infrastructure/http"
 	infraHTTP "github.com/renatofagalde/golang-fido-webauthn/internal/infrastructure/http"
 )
 
@@ -16,14 +15,9 @@ func main() {
 
 	userRepository := repository.NewInMemoryUserRepository()
 	userService := application.NewUserService(userRepository)
+	userHandler := fidoHTTP.NewUserHandler(userService)
 
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.Use(infraHTTP.FlowID())
-
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	infraHTTP.NewRouter
 
 	slog.Info("server stating", "addr", "8080")
 	if err := router.Run(":8080"); err != nil {
