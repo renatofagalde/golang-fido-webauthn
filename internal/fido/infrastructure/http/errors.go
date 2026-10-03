@@ -13,7 +13,7 @@ func writeDomainError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
 		writeerror.JSON(c, http.StatusBadRequest, err.Error())
-	case errors.Is(err, domain.ErrUsernametaken):
+	case errors.Is(err, domain.ErrUsernameTaken):
 		writeerror.JSON(c, http.StatusConflict, err.Error())
 	case errors.Is(err, domain.ErrUserNotFound):
 		writeerror.JSON(c, http.StatusNotFound, err.Error())
