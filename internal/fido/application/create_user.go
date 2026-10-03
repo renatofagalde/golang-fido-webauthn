@@ -17,7 +17,7 @@ func (uc *userUsecase) Create(ctx context.Context, input CreateUserInput) (*doma
 		return nil, err
 	}
 	if taken {
-		return nil, domain.ErrUsernametaken
+		return nil, domain.ErrUsernameTaken
 	}
 	hash, _ := uuid.NewV7()
 	user := &domain.User{
