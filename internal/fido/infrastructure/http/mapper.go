@@ -6,7 +6,7 @@ import (
 )
 
 func toCreateUserInput(request CreateUserRequest) application.CreateUserInput {
-	return application.CreateUserInput{Username: request.Username, Displayname: request.Displayname}
+	return application.CreateUserInput{Username: request.Username, DisplayName: request.DisplayName}
 }
 
 func toUserResponse(u *domain.User) UserResponse {
