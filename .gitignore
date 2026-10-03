@@ -102,3 +102,5 @@ pentest*
 
 # binario compilado na raiz (a "/" evita ignorar pastas/pacotes chamados "main")
 /main
+
+api
