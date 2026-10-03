@@ -8,7 +8,7 @@ import (
 )
 
 func (uc *userUsecase) Create(ctx context.Context, input CreateUserInput) (*domain.User, error) {
-	if input.Username == "" || input.Displayname == "" {
+	if input.Username == "" || input.DisplayName == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
@@ -23,7 +23,7 @@ func (uc *userUsecase) Create(ctx context.Context, input CreateUserInput) (*doma
 	user := &domain.User{
 		Hash:        hash.String(),
 		Username:    input.Username,
-		DisplayName: input.Displayname,
+		DisplayName: input.DisplayName,
 		IsActive:    true,
 	}
 
