@@ -9,6 +9,7 @@ import (
 
 type RouterConfig struct {
 	userHTTP.UserHandler
+	userHandler userHTTP.UserHandler
 }
 
 func NewRouter(cfg RouterConfig) *gin.Engine {
