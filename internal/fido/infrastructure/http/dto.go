@@ -3,8 +3,8 @@ package http
 import "time"
 
 type CreateUserRequest struct {
-	Username    string `json:"username" binding:"requerid"`
-	Displayname string `json:"display_name" binding:"requerid"`
+	Username    string `json:"username" binding:"required"`
+	DisplayName string `json:"display_name" binding:"required"`
 }
 
 type UserResponse struct {
