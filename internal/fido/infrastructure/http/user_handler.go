@@ -1,3 +1,4 @@
+// Package http has olny user infrastructure files
 package http
 
 import (
