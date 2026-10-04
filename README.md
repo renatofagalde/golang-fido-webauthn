@@ -5,6 +5,8 @@ Clean Architecture skeleton used in the production `gestao.one` services. It sta
 as a standalone Gin + PostgreSQL service and is designed to later fold into `app-cam`
 (the auth/RBAC service) and run serverless.
 
+> Portuguese version below / Versao em portugues mais abaixo.
+
 ## Goal
 
 Learn the WebAuthn ceremony end to end (registration and login), with the real
@@ -216,3 +218,227 @@ per-tenant RP configuration are deferred to the production phase.
 7. [ ] Browser test page (`web/`) to exercise a real passkey
 8. [ ] E2E tests with a virtual authenticator
 9. [ ] Fold into `app-cam`: Lambda entrypoint, RDS, per-tenant RP, token integration
+
+---
+
+# golang-fido-webauthn (PT-BR)
+
+Backend de estudo para aprender FIDO2 / WebAuthn (passkeys) em Go, construido com o
+mesmo esqueleto de Clean Architecture usado nos servicos de producao do `gestao.one`.
+Comeca como um servico standalone Gin + PostgreSQL e foi desenhado para depois ser
+incorporado ao `app-cam` (o servico de auth/RBAC) e rodar serverless.
+
+## Objetivo
+
+Aprender a cerimonia WebAuthn de ponta a ponta (registro e login), com as convencoes
+reais de engenharia: Clean Architecture, interfaces consumer-driven, semantica explicita
+de ponteiro versus valor, log estruturado, testes table-driven e CI. Cada endpoint e
+construido como uma fatia vertical completa, do HTTP ate a persistencia.
+
+## Stack
+
+| Area | Atual (estudo local) | Alvo (producao) |
+| --- | --- | --- |
+| Linguagem | Go 1.25 | Go 1.25 |
+| HTTP | Gin | Gin (via API Gateway) |
+| Computacao | binario standalone | AWS Lambda (`provided.al2023`, `arm64`) + API Gateway REST |
+| Banco | PostgreSQL 18 em Docker (sem volume, efemero) | AWS RDS PostgreSQL |
+| ORM | GORM (`gorm.io/driver/postgres`) | igual |
+| WebAuthn | `github.com/go-webauthn/webauthn` | igual |
+| IDs | `github.com/google/uuid` (UUIDv7) | igual |
+| Log | `log/slog` (JSON) | igual, enviado ao CloudWatch |
+| Testes | `testing` + `testify`, Testcontainers na integracao | igual |
+| CI | GitHub Actions (build, vet, test -race) | igual |
+
+O servico e escrito com pouca dependencia de framework nas bordas, entao a migracao
+para Lambda e uma troca de entrypoint (`cmd/lambda/main.go`) e do store da cerimonia,
+nao um redesenho.
+
+## Arquitetura
+
+Clean Architecture com as setas de dependencia apontando para dentro. O dominio nao
+depende de nada; a aplicacao depende do dominio; a infraestrutura depende do dominio.
+Nenhuma tag de framework (gorm, json) vaza para as entidades de dominio.
+
+```
+cmd/api/                         entrypoint do processo, wiring de dependencia
+internal/
+  fido/
+    domain/                      entidades puras + interfaces de repositorio + sentinel errors
+    application/                 usecases (interface + impl), structs de input
+    infrastructure/
+      http/                      handlers, DTOs, mappers DTO<->dominio, mapeamento de erro
+      repository/                models GORM, mappers model<->dominio, DAOs
+      webauthn/                  provider WebAuthn (config de RP) e cola da cerimonia
+  infrastructure/
+    http/                        router + middleware compartilhados (flow-id, log)
+pkg/
+  flowid/                        id de correlacao da request no context (neutro de framework)
+  writeerror/                    writer generico de resposta de erro HTTP
+  ptr/                           helper generico Ptr[T]
+sql/init/                        arquivos de schema, aplicados na criacao do container
+web/                             pagina de teste no browser (fase posterior)
+```
+
+### Comportamento transversal
+
+- Toda request de negocio precisa carregar um header `X-Flow-ID` valido (UUID). O
+  middleware rejeita valor ausente ou malformado com `400`, propaga o id pelo
+  `context.Context` para toda camada logar com o mesmo id de correlacao, e devolve ele
+  na resposta. O `GET /health` e isento, para sondas de infraestrutura funcionarem sem
+  o header.
+- Cada request loga `request received` e `request completed` (metodo, path, status,
+  latencia) como JSON estruturado, vinculado ao flow id.
+- Erros de dominio sao mapeados para status HTTP em um unico lugar por modulo
+  (`infrastructure/http/errors.go`), entao o dominio nunca importa HTTP.
+
+## Rodando localmente
+
+```bash
+# sobe o Postgres efemero (o schema em sql/init e aplicado na criacao do container)
+docker compose up -d
+
+# roda a API
+go run ./cmd/api
+
+# health check
+curl -i localhost:8080/health
+```
+
+Gates de qualidade (os mesmos da CI):
+
+```bash
+go build ./...
+go vet ./...
+go test -race ./...
+```
+
+## Endpoints
+
+Grupo base: `/fido`. Toda rota de negocio exige o header `X-Flow-ID` valido.
+
+### Implementado
+
+#### `POST /fido/users` — cria um usuario WebAuthn
+
+Cria o registro de usuario ao qual uma passkey sera vinculada depois. Uma credencial
+WebAuthn precisa de um handle estavel, opaco e sem PII, entao o usuario e criado
+primeiro e a cerimonia o referencia em seguida.
+
+Request:
+
+```json
+{ "username": "padme", "display_name": "Padme Amidala" }
+```
+
+Comportamento:
+
+- Valida que ambos os campos estao presentes (`400` em body ausente/malformado).
+- Rejeita username duplicado com `409`.
+- Gera um `hash` UUIDv7 que tambem serve de handle WebAuthn (sem PII).
+- Retorna `201` com o usuario criado (hash, username, display_name, timestamps). O id
+  numerico interno e os campos de auditoria nao sao expostos.
+
+#### `GET /health` — liveness
+
+Retorna `200 {"status":"ok"}`. Isento do header de flow-id.
+
+### Planejado — cerimonia WebAuthn
+
+WebAuthn e uma cerimonia de dois passos. O passo `begin` emite um challenge
+criptografico que o passo `finish` precisa validar, entao o challenge (`SessionData`) e
+persistido entre as duas chamadas (na `fido_ceremony`), de uso unico, e expirado na
+leitura, nunca confiado apos o prazo.
+
+Um autenticador real e necessario para completar o `finish` (Touch ID, YubiKey, celular
+ou o autenticador virtual do browser). Um cliente HTTP puro como o Postman consegue
+chamar o `begin`, mas nao completa o `finish`, porque nao produz a assinatura.
+
+#### `POST /fido/register/begin` — inicia o registro de passkey
+
+Para um usuario ja existente/autenticado que esta adicionando uma passkey a conta.
+
+Comportamento:
+
+- Carrega o usuario pelo hash; `404` se desconhecido.
+- Monta as opcoes WebAuthn escopadas pelo RP e gera um challenge.
+- Persiste o `SessionData` vinculado a um `ceremony_id` com TTL curto.
+- Retorna `200` com o `PublicKeyCredentialCreationOptions` (JSON que o browser passa ao
+  `navigator.credentials.create()`) e o `ceremony_id` que o cliente devolve no finish.
+
+#### `POST /fido/register/finish` — completa o registro de passkey
+
+Comportamento:
+
+- Consome a sessao da cerimonia atomicamente; se ausente ou expirada, `400` (o cliente
+  reinicia do `begin`). O challenge e de uso unico.
+- Verifica a attestation produzida pelo autenticador contra o challenge armazenado.
+- Em sucesso, armazena a nova credencial (credential id, chave publica, sign count,
+  AAGUID, transports, flags de backup) vinculada ao usuario, e retorna `201`.
+- Em falha de verificacao, `400`. O challenge ja foi queimado, entao um retry exige um
+  novo `begin`.
+
+#### `POST /fido/login/begin` — inicia o login por passkey
+
+Rota publica (e assim que o usuario se autentica, entao nao ha sessao previa). Em
+producao fica fora do grupo autenticado, ao lado da emissao de token.
+
+Comportamento:
+
+- Gera um challenge de assertion (para um usuario conhecido, ou discoverable para
+  passkeys).
+- Persiste o `SessionData` sob um `ceremony_id` com TTL curto.
+- Retorna `200` com o `PublicKeyCredentialRequestOptions` para o
+  `navigator.credentials.get()` e o `ceremony_id`.
+
+#### `POST /fido/login/finish` — completa o login por passkey
+
+Comportamento:
+
+- Consome a sessao da cerimonia atomicamente; ausente ou expirada e `400`.
+- Busca a chave publica armazenada pelo credential id e verifica a assinatura contra o
+  challenge armazenado.
+- Valida e atualiza o contador de assinatura (deteccao de clone): um contador que anda
+  para tras sinaliza um autenticador clonado.
+- Em sucesso, retorna `200` com a identidade do usuario verificada. Emissao de
+  token/sessao esta fora do escopo deste servico de estudo e pertence ao `app-cam` na
+  integracao.
+
+#### `GET /fido/credentials` — lista as credenciais do usuario
+
+Comportamento:
+
+- Retorna as credenciais registradas para o usuario (credential id, nome amigavel,
+  transports, timestamps de criacao/ultimo uso, estado de backup). Nunca retorna o
+  material da chave privada (nao existe no servidor) nem ids internos crus.
+
+#### `DELETE /fido/credentials/{id}` — revoga uma credencial
+
+Comportamento:
+
+- Faz soft-delete/revoga uma unica credencial do usuario, por exemplo quando um device
+  e perdido. `404` se a credencial nao existe ou nao pertence ao usuario. Retorna `204`
+  em sucesso.
+
+## Relying Party (escopo de estudo)
+
+Fixo em localhost para desenvolvimento local:
+
+- RP ID: `localhost`
+- RP origin: `http://localhost:8080`
+
+`localhost` conta como secure context, entao a cerimonia no browser funciona sem HTTPS.
+Suporte a app nativo (iOS `AuthenticationServices`, Android Credential Manager) e
+configuracao de RP por tenant ficam para a fase de producao.
+
+## Roadmap
+
+1. [x] Fatia vertical do `POST /fido/users` com middleware de flow-id, mapeamento de erro, testes e CI
+2. [ ] DAO PostgreSQL do `fido_user` (troca o andaime em memoria) com Testcontainers
+3. [ ] Schema `fido_ceremony` + `fido_credential` e store da sessao da cerimonia
+4. [ ] `register/begin` + `register/finish`
+5. [ ] `login/begin` + `login/finish`
+6. [ ] `GET /fido/credentials` + `DELETE /fido/credentials/{id}`
+7. [ ] Pagina de teste no browser (`web/`) para exercitar uma passkey real
+8. [ ] Testes E2E com autenticador virtual
+9. [ ] Incorporar ao `app-cam`: entrypoint Lambda, RDS, RP por tenant, integracao de token
