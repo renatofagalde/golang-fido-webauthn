@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -42,10 +43,34 @@ func TestUserHandler_Create(t *testing.T) {
 				},
 			}, expectedStatus: http.StatusCreated,
 		},
+		{
+			name:           "missing username",
+			body:           `{"display_name":"Padme"}`,
+			service:        &fakeUserService{},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "malformed json",
+			body:           `{`,
+			service:        &fakeUserService{},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "username taken",
+			body:           `{"username":"padme","display_name":"Padme"}`,
+			service:        &fakeUserService{err: domain.ErrUsernameTaken},
+			expectedStatus: http.StatusConflict,
+		},
+		{
+			name:           "internal error",
+			body:           `{"username":"padme","display_name":"Padme"}`,
+			service:        &fakeUserService{err: errors.New("boom")},
+			expectedStatus: http.StatusInternalServerError,
+		},
 	}
 
 	for i, itemTest := range testCases {
-		t.Run(fmt.Sprint("%d#)%s", i, itemTest.name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d#)%s", i, itemTest.name), func(t *testing.T) {
 			handler := NewUserHandler(itemTest.service)
 
 			r := gin.New()
